@@ -28,11 +28,14 @@ class ChatGUI:
         self.text_area.pack(padx=10, pady=10)
         self.entry = tk.Entry(root, width=50)
         self.entry.pack(side=tk.LEFT, padx=(10,0), pady=(0,10))
-        self.send_button = tk.Button(root, text="Send", command=self.send_message)
+        self.send_button = tk.Button(root, text="Send", command=self.send_message, state=tk.DISABLED)
         self.send_button.pack(side=tk.LEFT, padx=(5,10), pady=(0,10))
+        self.exit_button = tk.Button(root, text="Salir", command=self.close_app, fg="red")
+        self.exit_button.pack(side=tk.LEFT, padx=(5,10), pady=(0,10))
         self.entry.bind("<Return>", lambda event: self.send_message())
 
         self.sock = None
+        self.conn = None
         self.running = False
         self.is_server = False
 
@@ -46,6 +49,9 @@ class ChatGUI:
         else:
             self.is_server = False
             self.start_client()
+
+        # Cerrar correctamente al cerrar ventana
+        self.root.protocol("WM_DELETE_WINDOW", self.close_app)
 
     def start_server(self):
         ip_local = get_local_ip()
@@ -61,6 +67,7 @@ class ChatGUI:
             client_socket, client_address = self.sock.accept()
             self.conn = client_socket
             self.append_text(f"🟢 Connected to {client_address}")
+            self.send_button.config(state=tk.NORMAL)
             threading.Thread(target=self.receive_messages, args=(self.conn,), daemon=True).start()
         except Exception as e:
             self.append_text(f"🔴 Error accepting connection: {e}")
@@ -73,11 +80,15 @@ class ChatGUI:
             self.append_text("🚀 Connected to server.")
             self.conn = self.sock
             self.running = True
+            self.send_button.config(state=tk.NORMAL)
             threading.Thread(target=self.receive_messages, args=(self.conn,), daemon=True).start()
         except Exception as e:
             self.append_text(f"🔴 Connection error: {e}")
 
     def send_message(self):
+        if not self.conn or not self.running:
+            self.append_text("🔴 Not connected.")
+            return
         msg = self.entry.get()
         if not msg:
             return
@@ -94,6 +105,8 @@ class ChatGUI:
                 message = conn.recv(1024)
                 if not message:
                     self.append_text("🔴 Connection closed.")
+                    self.running = False
+                    self.send_button.config(state=tk.DISABLED)
                     break
                 message_decoded = message.decode('utf-8')
                 translated = translator.translate_text(
@@ -105,6 +118,8 @@ class ChatGUI:
                 self.append_text(f"🌍 Translated: {translated.text}")
             except Exception as e:
                 self.append_text(f"🔴 Error receiving: {e}")
+                self.running = False
+                self.send_button.config(state=tk.DISABLED)
                 break
 
     def append_text(self, text):
@@ -112,6 +127,21 @@ class ChatGUI:
         self.text_area.insert(tk.END, text + "\n")
         self.text_area.see(tk.END)
         self.text_area.config(state='disabled')
+
+    def close_app(self):
+        self.running = False
+        try:
+            if self.conn:
+                self.conn.shutdown(socket.SHUT_RDWR)
+                self.conn.close()
+        except Exception:
+            pass
+        try:
+            if self.sock:
+                self.sock.close()
+        except Exception:
+            pass
+        self.root.destroy()
 
 if __name__ == "__main__":
     root = tk.Tk()
