@@ -21,7 +21,7 @@ LANG_SEND = input("What is your language? (messages you WRITE and want to READ i
 LANG_RECEIVE = input("What language does the other user write in? (messages you RECEIVE): ").strip().upper()
 
 DEEPL_API_KEY = "f9b2a1b9-34b1-40dc-997e-a22089c17457:fx"
-translator = deepl.Trancleaslator(DEEPL_API_KEY)
+translator = deepl.Translator(DEEPL_API_KEY)
 
 # Connect to server
 print("Both computers must be connected to the same network (WiFi or LAN).")
