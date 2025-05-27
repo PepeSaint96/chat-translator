@@ -109,10 +109,17 @@ class ChatGUI:
                     self.send_button.config(state=tk.DISABLED)
                     break
                 message_decoded = message.decode('utf-8')
+                # Corregido: usar EN-US si el usuario puso EN para evitar deprecation warning
+                target_lang = self.lang_send.upper()
+                if target_lang == "EN":
+                    target_lang = "EN-US"
+                source_lang = self.lang_receive.upper()
+                if source_lang == "EN":
+                    source_lang = "EN-US"
                 translated = translator.translate_text(
                     message_decoded,
-                    source_lang=self.lang_receive.upper(),
-                    target_lang=self.lang_send.upper()
+                    source_lang=source_lang,
+                    target_lang=target_lang
                 )
                 self.append_text(f"\n💬 Original: {message_decoded}")
                 self.append_text(f"🌍 Translated: {translated.text}")
