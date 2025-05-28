@@ -266,7 +266,7 @@ class MainApp(tk.Tk):
 
     def show_home(self):
         if self.chat_frame:
-            self.chat_frame.pack_forget()
+            self.chat_frame.pack_forget()  # Oculta el chat, pero no lo destruye
         self.home_frame = HomeGUI(self, self.start_chat)
 
     def start_chat(self, username, lang_send, lang_receive, mode):
