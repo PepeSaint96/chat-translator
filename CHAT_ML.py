@@ -162,9 +162,9 @@ class ChatGUI(tk.Frame):
                     detected = translator.detect_language(message_decoded).language
                 except Exception:
                     detected = source_lang
-                # Si el idioma detectado no coincide con el esperado, mostrar sin traducir
-                if detected != source_lang:
-                    self.append_text(f"\n💬 (Idioma detectado: {detected}) Mensaje recibido sin traducir: {message_decoded}")
+                # Solo traducir si el idioma detectado coincide con el esperado y es soportado por DeepL
+                if detected != source_lang or detected not in ["EN", "EN-US", "EN-GB", "ES", "FR", "DE", "IT", "PT", "NL", "PL", "RU", "JA", "ZH"]:
+                    self.append_text(f"\n💬 (Idioma detectado: {detected}) Mensaje recibido sin traducir: {message_decoded}")  # Línea corregida
                 else:
                     translated = translator.translate_text(
                         message_decoded,
