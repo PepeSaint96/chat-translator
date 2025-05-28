@@ -140,6 +140,25 @@ class ChatGUI(tk.Frame):
         msg = self.entry.get()
         if not msg:
             return
+        # Nuevo: Validar idioma antes de enviar
+        try:
+            # Normaliza el idioma elegido
+            lang_code = self.lang_send.upper()
+            if lang_code == "EN":
+                lang_code = "EN-US"
+            # Detecta el idioma real del mensaje
+            detected = translator.detect_language(msg).language.upper()
+            # Si el idioma detectado no coincide con el elegido, mostrar alerta y no enviar
+            if detected != lang_code:
+                messagebox.showwarning(
+                    "Idioma incorrecto",
+                    f"El mensaje detectado está en '{detected}', pero tu idioma seleccionado es '{lang_code}'. Corrige el mensaje antes de enviarlo."
+                )
+                # No borra el mensaje, permite editarlo
+                return
+        except Exception:
+            # Si no se puede detectar, permite enviar (opcional: puedes bloquear aquí también)
+            pass
         try:
             self.conn.send(msg.encode('utf-8'))
             self.append_text(f"{self.username}: {msg}")  # Mostrar nombre de usuario
