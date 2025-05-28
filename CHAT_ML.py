@@ -157,13 +157,22 @@ class ChatGUI(tk.Frame):
                 source_lang = self.lang_receive.upper()
                 if source_lang == "EN":
                     source_lang = "EN-US"
-                translated = translator.translate_text(
-                    message_decoded,
-                    source_lang=source_lang,
-                    target_lang=target_lang
-                )
-                self.append_text(f"\n💬 Original: {message_decoded}")
-                self.append_text(f"🌍 Traducido: {translated.text}")
+                # Nuevo: detectar idioma del mensaje recibido
+                try:
+                    detected = translator.detect_language(message_decoded).language
+                except Exception:
+                    detected = source_lang
+                # Si el idioma detectado no coincide con el esperado, mostrar sin traducir
+                if detected != source_lang:
+                    self.append_text(f"\n💬 (Idioma detectado: {detected}) Mensaje recibido sin traducir: {message_decoded}")
+                else:
+                    translated = translator.translate_text(
+                        message_decoded,
+                        source_lang=source_lang,
+                        target_lang=target_lang
+                    )
+                    self.append_text(f"\n💬 Original: {message_decoded}")
+                    self.append_text(f"🌍 Traducido: {translated.text}")
             except Exception as e:
                 self.append_text(f"🔴 Error recibiendo: {e}")
                 self.running = False
