@@ -223,6 +223,11 @@ class ChatGUI(tk.Frame):
                 break
 
     def append_text(self, text):
+        # Siempre actualizar la interfaz desde el hilo principal
+        if self.text_area.winfo_exists():
+            self.text_area.after(0, self._append_text_safe, text)
+
+    def _append_text_safe(self, text):
         self.text_area.config(state='normal')
         self.text_area.insert(tk.END, text + "\n")
         self.text_area.see(tk.END)
