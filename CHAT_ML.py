@@ -71,9 +71,12 @@ class ChatGUI(tk.Frame):
         self.is_server = (mode == "1")
         self.pack(padx=10, pady=10, fill="both", expand=True)
 
-        # Nuevo: Mostrar rol y idioma seleccionado en la parte superior
+        # Nuevo: Mostrar rol, nombre de usuario y idioma seleccionado en la parte superior
         rol = "Servidor" if self.is_server else "Cliente"
-        info_text = f"Modo: {rol} | Tu idioma: {self.lang_send.upper()} | Idioma del otro usuario: {self.lang_receive.upper()}"
+        info_text = (
+            f"Modo: {rol} | Usuario: {self.username} | "
+            f"Tu idioma: {self.lang_send.upper()} | Idioma del otro usuario: {self.lang_receive.upper()}"
+        )
         self.info_label = tk.Label(self, text=info_text, font=("Arial", 12, "bold"), fg="blue")
         self.info_label.pack(pady=(0, 5))
         # Fin de bloque nuevo
