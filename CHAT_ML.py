@@ -214,7 +214,7 @@ class ChatGUI(tk.Frame):
                     self.append_text(f"🌍 Traducido: {translated.text}")
                 else:
                     # Si no, mostrar sin traducir y avisar
-                    self.append_text(f"\n💬 (Idioma detectado: {detected}) Mensaje recibido sin traducir: {message_decoded}")  # Línea corregida
+                    self.append_text(f"\n💬 (Idioma detectado: {detected}) Mensaje recibido sin traducir: {message_decoded}")
             except Exception as e:
                 self.append_text(f"🔴 Error recibiendo: {e}")
                 self.running = False
