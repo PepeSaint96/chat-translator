@@ -143,38 +143,23 @@ class ChatGUI(tk.Frame):
         msg = self.entry.get()
         if not msg:
             return
-        # Nuevo: Validar idioma antes de enviar
+        # Detectar idioma real del mensaje
         try:
-            # Normaliza el idioma elegido
-            lang_code = self.lang_send.upper()
-            if lang_code == "EN":
-                lang_code = "EN-US"
-            # Detecta el idioma real del mensaje
             detected = translator.detect_language(msg).language.upper()
-            # Si el idioma detectado no coincide con el elegido, mostrar alerta y no enviar
-            if detected != lang_code:
-                messagebox.showwarning(
-                    "Idioma incorrecto",
-                    f"El mensaje detectado está en '{detected}', pero tu idioma seleccionado es '{lang_code}'. Corrige el mensaje antes de enviarlo."
-                )
-                # No borra el mensaje, permite editarlo
-                return
+            if detected == "EN":
+                detected = "EN-US"
         except Exception:
-            # Si no se puede detectar, permite enviar (opcional: puedes bloquear aquí también)
-            pass
+            detected = self.lang_send.upper()
+        # Traducir solo si el idioma detectado y el destino son diferentes
+        msg_to_send = translate_message(msg, detected, self.lang_receive.upper())
         try:
-            self.conn.send(msg.encode('utf-8'))
-            self.append_text(f"{self.username}: {msg}")  # Mostrar nombre de usuario
+            self.conn.send(msg_to_send.encode('utf-8'))
+            self.append_text(f"{self.username}: {msg}")  # Mostrar mensaje original en el chat local
             self.entry.delete(0, tk.END)
         except Exception as e:
             self.append_text(f"🔴 Error enviando: {e}")
 
     def receive_messages(self, conn):
-        # Lista de códigos válidos para DeepL
-        deepl_langs = [
-            "BG", "CS", "DA", "DE", "EL", "EN-GB", "EN-US", "ES", "ET", "FI", "FR", "HU", "ID", "IT", "JA", "KO",
-            "LT", "LV", "NB", "NL", "PL", "PT-BR", "PT-PT", "RO", "RU", "SK", "SL", "SV", "TR", "UK", "ZH"
-        ]
         while self.running:
             try:
                 message = conn.recv(1024)
@@ -184,37 +169,18 @@ class ChatGUI(tk.Frame):
                     self.send_button.config(state=tk.DISABLED)
                     break
                 message_decoded = message.decode('utf-8')
-                # Normaliza los idiomas para DeepL
-                target_lang = self.lang_send.upper()
-                if target_lang == "EN":
-                    target_lang = "EN-US"
-                source_lang = self.lang_receive.upper()
-                if source_lang == "EN":
-                    source_lang = "EN-US"
-                # Detecta el idioma real del mensaje
+                # Detectar idioma real del mensaje recibido
                 try:
                     detected = translator.detect_language(message_decoded).language.upper()
-                    # DeepL puede devolver "EN", así que normalizamos para comparar
                     if detected == "EN":
                         detected = "EN-US"
                 except Exception:
-                    detected = source_lang
-                # Solo traducir si el idioma detectado es igual al esperado y ambos están soportados por DeepL
-                if (
-                    detected == source_lang and
-                    detected in deepl_langs and
-                    target_lang in deepl_langs
-                ):
-                    translated = translator.translate_text(
-                        message_decoded,
-                        source_lang=source_lang,
-                        target_lang=target_lang
-                    )
-                    self.append_text(f"\n💬 Original: {message_decoded}")
-                    self.append_text(f"🌍 Traducido: {translated.text}")
-                else:
-                    # Si no, mostrar sin traducir y avisar
-                    self.append_text(f"\n💬 (Idioma detectado: {detected}) Mensaje recibido sin traducir: {message_decoded}")
+                    detected = self.lang_receive.upper()
+                # Traducir solo si el idioma detectado y el destino son diferentes
+                translated = translate_message(message_decoded, detected, self.lang_send.upper())
+                self.append_text(f"\n💬 Original: {message_decoded}")
+                if translated != message_decoded:
+                    self.append_text(f"🌍 Traducido: {translated}")
             except Exception as e:
                 self.append_text(f"🔴 Error recibiendo: {e}")
                 self.running = False
@@ -282,6 +248,23 @@ class MainApp(tk.Tk):
     def start_chat(self, username, lang_send, lang_receive, mode):
         self.home_frame.pack_forget()
         self.chat_frame = ChatGUI(self, username, lang_send, lang_receive, mode, self.show_home)
+
+def translate_message(text, from_lang, to_lang):
+    """
+    Traduce el mensaje solo si los idiomas son diferentes.
+    Devuelve el texto traducido o el original si no se requiere traducción.
+    """
+    if from_lang.upper() == "EN":
+        from_lang = "EN-US"
+    if to_lang.upper() == "EN":
+        to_lang = "EN-US"
+    if from_lang.upper() == to_lang.upper():
+        return text  # No traducir si los idiomas son iguales
+    try:
+        translated = translator.translate_text(text, source_lang=from_lang.upper(), target_lang=to_lang.upper())
+        return translated.text
+    except Exception:
+        return text  # Si falla la traducción, retorna el original
 
 if __name__ == "__main__":
     app = MainApp()
