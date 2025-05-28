@@ -20,22 +20,33 @@ def get_local_ip():
 DEEPL_API_KEY = "f9b2a1b9-34b1-40dc-997e-a22089c17457:fx"
 translator = deepl.Translator(DEEPL_API_KEY)
 
-class HomeGUI(tk.Frame):
+
+class HomeGUI(tk.Frame): 
     """Ventana principal (home) para elegir nombre, idioma y modo."""
     def __init__(self, master, on_start_chat):
         super().__init__(master)
         self.master = master
         self.on_start_chat = on_start_chat
         self.pack(padx=20, pady=20)
+
+        LANGUAGES = ["EN", "ES", "FR", "DE", "IT", "PT", "EN-US", "PT-BR"]  # Lista de idiomas válidos
+
         tk.Label(self, text="Nombre de usuario (solo letras y números):").pack()
         self.username_entry = tk.Entry(self)
         self.username_entry.pack(pady=(0,10))
-        tk.Label(self, text="Tu idioma (ej: EN, ES, FR):").pack()
-        self.lang_send_entry = tk.Entry(self)
-        self.lang_send_entry.pack(pady=(0,10))
-        tk.Label(self, text="Idioma del otro usuario (ej: EN, ES, FR):").pack()
-        self.lang_receive_entry = tk.Entry(self)
-        self.lang_receive_entry.pack(pady=(0,10))
+
+        # Nuevo: Menú desplegable para idioma de origen
+        tk.Label(self, text="Tu idioma (origen):").pack()
+        self.lang_send_var = tk.StringVar(value=LANGUAGES[0])
+        self.lang_send_menu = tk.OptionMenu(self, self.lang_send_var, *LANGUAGES)
+        self.lang_send_menu.pack(pady=(0,10))
+
+        # Nuevo: Menú desplegable para idioma destino
+        tk.Label(self, text="Idioma del otro usuario (destino):").pack()
+        self.lang_receive_var = tk.StringVar(value=LANGUAGES[1])
+        self.lang_receive_menu = tk.OptionMenu(self, self.lang_receive_var, *LANGUAGES)
+        self.lang_receive_menu.pack(pady=(0,10))
+
         tk.Label(self, text="Modo:").pack()
         self.mode_var = tk.StringVar(value="1")
         tk.Radiobutton(self, text="Servidor", variable=self.mode_var, value="1").pack(anchor="w")
@@ -47,10 +58,10 @@ class HomeGUI(tk.Frame):
         if not username.isalnum():
             messagebox.showerror("Error", "El nombre solo puede contener letras y números.")
             return
-        lang_send = self.lang_send_entry.get().strip()
-        lang_receive = self.lang_receive_entry.get().strip()
+        lang_send = self.lang_send_var.get()  # Nuevo: obtener idioma de origen del OptionMenu
+        lang_receive = self.lang_receive_var.get()  # Nuevo: obtener idioma destino del OptionMenu
         if not lang_send or not lang_receive:
-            messagebox.showerror("Error", "Debes ingresar ambos idiomas.")
+            messagebox.showerror("Error", "Debes seleccionar ambos idiomas.")
             return
         mode = self.mode_var.get()
         self.on_start_chat(username, lang_send, lang_receive, mode)
@@ -135,7 +146,22 @@ class ChatGUI(tk.Frame):
             threading.Thread(target=self.receive_messages, args=(self.conn,), daemon=True).start()
         except Exception as e:
             self.append_text(f"🔴 Error de conexión: {e}")
-
+    # Refactorizar la lógica de traducción cliente-servidor para que sea más clara y escalable:
+    # 1. Separar los conceptos de idioma de escritura (lo que yo envío) e idioma de recepción (lo que yo quiero entender).
+    #    - Usar variables como my_lang_out (yo escribo) y my_lang_in (yo recibo).
+    #    - Para el otro usuario, usar peer_lang_out y peer_lang_in.
+    # 2. Toda traducción debe ir de peer_lang_out → my_lang_in cuando recibo, y de my_lang_out → peer_lang_in cuando envío.
+    # 3. Validar que los idiomas ingresados estén dentro de una lista de idiomas válidos para DeepL.
+    # 4. Manejar errores de traducción o clave API inválida con mensajes claros al usuario.
+    # 5. Mantener el texto original visible junto al traducido para trazabilidad.
+    # Implementar estas mejoras en la función send_message() y receive_messages().
+    def validate_language(self, lang):
+        """Valida que el idioma esté en la lista de idiomas soportados por DeepL."""
+        valid_languages = ["EN", "ES", "FR", "DE", "IT", "NL", "PL", "PT", "RU", "ZH"]
+        if lang.upper() not in valid_languages:
+            raise ValueError(f"Idioma no soportado: {lang}. Debe ser uno de {valid_languages}.")
+        return lang.upper()
+        
     def send_message(self):
         if not self.conn or not self.running:
             self.append_text("🔴 No conectado.")
@@ -158,6 +184,15 @@ class ChatGUI(tk.Frame):
             self.entry.delete(0, tk.END)
         except Exception as e:
             self.append_text(f"🔴 Error enviando: {e}")
+    # Refactorizar la lógica de traducción cliente-servidor para que sea más clara y escalable:
+    # 1. Separar los conceptos de idioma de escritura (lo que yo envío) e idioma de recepción (lo que yo quiero entender).
+    #    - Usar variables como my_lang_out (yo escribo) y my_lang_in (yo recibo).
+    #    - Para el otro usuario, usar peer_lang_out y peer_lang_in.
+    # 2. Toda traducción debe ir de peer_lang_out → my_lang_in cuando recibo, y de my_lang_out → peer_lang_in cuando envío.
+    # 3. Validar que los idiomas ingresados estén dentro de una lista de idiomas válidos para DeepL.
+    # 4. Manejar errores de traducción o clave API inválida con mensajes claros al usuario.
+    # 5. Mantener el texto original visible junto al traducido para trazabilidad.
+    # Implementar estas mejoras en la función send_message() y receive_messages().
 
     def receive_messages(self, conn):
         while self.running:
