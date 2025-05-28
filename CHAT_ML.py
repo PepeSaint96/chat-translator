@@ -171,7 +171,10 @@ class ChatGUI(tk.Frame):
 
     def receive_messages(self, conn):
         # Lista de códigos válidos para DeepL
-        deepl_langs = ["BG", "CS", "DA", "DE", "EL", "EN-GB", "EN-US", "ES", "ET", "FI", "FR", "HU", "ID", "IT", "JA", "KO", "LT", "LV", "NB", "NL", "PL", "PT-BR", "PT-PT", "RO", "RU", "SK", "SL", "SV", "TR", "UK", "ZH"]
+        deepl_langs = [
+            "BG", "CS", "DA", "DE", "EL", "EN-GB", "EN-US", "ES", "ET", "FI", "FR", "HU", "ID", "IT", "JA", "KO",
+            "LT", "LV", "NB", "NL", "PL", "PT-BR", "PT-PT", "RO", "RU", "SK", "SL", "SV", "TR", "UK", "ZH"
+        ]
         while self.running:
             try:
                 message = conn.recv(1024)
@@ -191,10 +194,17 @@ class ChatGUI(tk.Frame):
                 # Detecta el idioma real del mensaje
                 try:
                     detected = translator.detect_language(message_decoded).language.upper()
+                    # DeepL puede devolver "EN", así que normalizamos para comparar
+                    if detected == "EN":
+                        detected = "EN-US"
                 except Exception:
                     detected = source_lang
                 # Solo traducir si el idioma detectado es igual al esperado y ambos están soportados por DeepL
-                if detected == source_lang and detected in deepl_langs and target_lang in deepl_langs:
+                if (
+                    detected == source_lang and
+                    detected in deepl_langs and
+                    target_lang in deepl_langs
+                ):
                     translated = translator.translate_text(
                         message_decoded,
                         source_lang=source_lang,
