@@ -2,6 +2,8 @@
 
 import socket
 import threading
+import os
+
 import deepl
 import tkinter as tk
 from tkinter import scrolledtext, simpledialog, messagebox
@@ -17,7 +19,9 @@ def get_local_ip():
     s.close()
     return ip
 
-DEEPL_API_KEY = "f9b2a1b9-34b1-40dc-997e-a22089c17457:fx"
+DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
+if not DEEPL_API_KEY:
+    raise ValueError("DEEPL_API_KEY environment variable not set")
 translator = deepl.Translator(DEEPL_API_KEY)
 
 
@@ -72,8 +76,8 @@ class ChatGUI(tk.Frame):
         super().__init__(master)
         self.master = master
         self.username = username
-        self.lang_send = lang_send
-        self.lang_receive = lang_receive
+        self.lang_send = self.validate_language(lang_send)
+        self.lang_receive = self.validate_language(lang_receive)
         self.mode = mode
         self.on_home = on_home
         self.sock = None
@@ -157,11 +161,24 @@ class ChatGUI(tk.Frame):
     # Implementar estas mejoras en la función send_message() y receive_messages().
     def validate_language(self, lang):
         """Valida que el idioma esté en la lista de idiomas soportados por DeepL."""
-        valid_languages = ["EN", "ES", "FR", "DE", "IT", "NL", "PL", "PT", "RU", "ZH"]
+        valid_languages = [
+            "EN",
+            "EN-US",
+            "ES",
+            "FR",
+            "DE",
+            "IT",
+            "NL",
+            "PL",
+            "PT",
+            "PT-BR",
+            "RU",
+            "ZH",
+        ]
         if lang.upper() not in valid_languages:
             raise ValueError(f"Idioma no soportado: {lang}. Debe ser uno de {valid_languages}.")
         return lang.upper()
-        
+
     def send_message(self):
         if not self.conn or not self.running:
             self.append_text("🔴 No conectado.")
@@ -169,30 +186,13 @@ class ChatGUI(tk.Frame):
         msg = self.entry.get()
         if not msg:
             return
-        # Detectar idioma real del mensaje
+        translated, _ = translate_message(msg, self.lang_receive)
         try:
-            detected = translator.detect_language(msg).language.upper()
-            if detected == "EN":
-                detected = "EN-US"
-        except Exception:
-            detected = self.lang_send.upper()
-        # Traducir solo si el idioma detectado y el destino son diferentes
-        msg_to_send = translate_message(msg, detected, self.lang_receive.upper())
-        try:
-            self.conn.send(msg_to_send.encode('utf-8'))
-            self.append_text(f"{self.username}: {msg}")  # Mostrar mensaje original en el chat local
+            self.conn.send(translated.encode("utf-8"))
+            self.append_text(f"{self.username}: {msg}")
             self.entry.delete(0, tk.END)
         except Exception as e:
             self.append_text(f"🔴 Error enviando: {e}")
-    # Refactorizar la lógica de traducción cliente-servidor para que sea más clara y escalable:
-    # 1. Separar los conceptos de idioma de escritura (lo que yo envío) e idioma de recepción (lo que yo quiero entender).
-    #    - Usar variables como my_lang_out (yo escribo) y my_lang_in (yo recibo).
-    #    - Para el otro usuario, usar peer_lang_out y peer_lang_in.
-    # 2. Toda traducción debe ir de peer_lang_out → my_lang_in cuando recibo, y de my_lang_out → peer_lang_in cuando envío.
-    # 3. Validar que los idiomas ingresados estén dentro de una lista de idiomas válidos para DeepL.
-    # 4. Manejar errores de traducción o clave API inválida con mensajes claros al usuario.
-    # 5. Mantener el texto original visible junto al traducido para trazabilidad.
-    # Implementar estas mejoras en la función send_message() y receive_messages().
 
     def receive_messages(self, conn):
         while self.running:
@@ -204,15 +204,7 @@ class ChatGUI(tk.Frame):
                     self.send_button.config(state=tk.DISABLED)
                     break
                 message_decoded = message.decode('utf-8')
-                # Detectar idioma real del mensaje recibido
-                try:
-                    detected = translator.detect_language(message_decoded).language.upper()
-                    if detected == "EN":
-                        detected = "EN-US"
-                except Exception:
-                    detected = self.lang_receive.upper()
-                # Traducir solo si el idioma detectado y el destino son diferentes
-                translated = translate_message(message_decoded, detected, self.lang_send.upper())
+                translated, _ = translate_message(message_decoded, self.lang_send)
                 self.append_text(f"\n💬 Original: {message_decoded}")
                 if translated != message_decoded:
                     self.append_text(f"🌍 Traducido: {translated}")
@@ -289,22 +281,26 @@ class MainApp(tk.Tk):
         self.home_frame.pack_forget()
         self.chat_frame = ChatGUI(self, username, lang_send, lang_receive, mode, self.show_home)
 
-def translate_message(text, from_lang, to_lang):
+def translate_message(text, target_lang):
     """
-    Traduce el mensaje solo si los idiomas son diferentes.
-    Devuelve el texto traducido o el original si no se requiere traducción.
+    Traduce el mensaje al idioma objetivo y devuelve una tupla con el
+    texto traducido y el idioma detectado. Si no se requiere traducción o
+    ocurre un error, se devuelve el texto original y el idioma detectado o
+    ``None``.
     """
-    if from_lang.upper() == "EN":
-        from_lang = "EN-US"
-    if to_lang.upper() == "EN":
-        to_lang = "EN-US"
-    if from_lang.upper() == to_lang.upper():
-        return text  # No traducir si los idiomas son iguales
+    target = target_lang.upper()
+    if target == "EN":
+        target = "EN-US"
     try:
-        translated = translator.translate_text(text, source_lang=from_lang.upper(), target_lang=to_lang.upper())
-        return translated.text
+        result = translator.translate_text(text, target_lang=target)
+        detected = result.detected_source_lang.upper()
+        if detected == "EN":
+            detected = "EN-US"
+        if detected == target:
+            return text, detected
+        return result.text, detected
     except Exception:
-        return text  # Si falla la traducción, retorna el original
+        return text, None
 
 if __name__ == "__main__":
     app = MainApp()
